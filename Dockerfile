@@ -51,7 +51,7 @@ RUN apt-get install -y \
     libprotobuf10 \
     libssl1.1
 RUN apt-get install -y --no-install-recommends libsgx-launch libsgx-urts
-WORKDIR /opt/intel/sgxsdk/SampleCode/SampleEnclave
-RUN SGX_DEBUG=0 SGX_MODE=HW SGX_PRERELEASE=1 make
+WORKDIR /
+# RUN SGX_DEBUG=0 SGX_MODE=HW SGX_PRERELEASE=1 make
 
 CMD [ "/bin/bash" ]
