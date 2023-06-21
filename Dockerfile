@@ -1,57 +1,52 @@
-#
-# Copyright (C) 2020 Intel Corporation. All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-#   * Redistributions of source code must retain the above copyright
-#     notice, this list of conditions and the following disclaimer.
-#   * Redistributions in binary form must reproduce the above copyright
-#     notice, this list of conditions and the following disclaimer in
-#     the documentation and/or other materials provided with the
-#     distribution.
-#   * Neither the name of Intel Corporation nor the names of its
-#     contributors may be used to endorse or promote products derived
-#     from this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-# A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-# OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#
+FROM ubuntu:22.04
+ENV TZ=Europe/Lisbon
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
+RUN apt update -y && apt upgrade -y
+RUN apt install -y wget gnupg
 
-FROM ubuntu:18.04 as sgxbase
-RUN apt-get update && apt-get install -y \
-    gnupg \
-    wget
-
-RUN echo 'deb [arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu bionic main' > /etc/apt/sources.list.d/intel-sgx.list
+RUN echo 'deb [arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu jammy main' | tee /etc/apt/sources.list.d/intel-sgx.list
 RUN wget -qO - https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key | apt-key add -
-RUN apt-get update 
 
-FROM sgxbase as sgx_sample_builder
-# App build time dependencies
-RUN apt-get install -y build-essential
+RUN apt update -y && apt upgrade -y \
+&& apt install -y build-essential lld make git wget unzip cmake ninja-build gdb \
+        ocaml ocamlbuild automake autoconf libtool wget python-is-python3 libssl-dev git cmake perl \
+        python3 python3-pip lcov gcovr cppcheck \
+&& apt install -y clang clang-13 libc++-13-dev libc++abi-13-dev clang-format clang-format-13 \
+        libx86-dev libclang-common-13-dev libclang-common-14-dev \
+&& apt install -y libgtest-dev libboost-dev libssl-dev \
+&& apt install -y doxygen \
+&& apt install -y python3-matplotlib python3-numpy \
+&& apt install -y libssl-dev libcurl4-openssl-dev protobuf-compiler libprotobuf-dev \
+        debhelper cmake reprepro unzip pkgconf libboost-dev libboost-system-dev libboost-thread-dev \
+        protobuf-c-compiler libprotobuf-c-dev lsb-release libsystemd0 \
+build-essential lld make git wget unzip cmake ninja-build gdb \
+        ocaml ocamlbuild automake autoconf libtool wget python-is-python3 libssl-dev git cmake perl \
+        python3 python3-pip lcov gcovr cppcheck \
+clang clang-13 libc++-13-dev libc++abi-13-dev clang-format clang-format-13 \
+libx86-dev libclang-common-13-dev libclang-common-14-dev libgtest-dev libboost-dev libssl-dev  doxygen  python3-matplotlib python3-numpy  libssl-dev libcurl4-openssl-dev protobuf-compiler libprotobuf-dev \
+debhelper cmake reprepro unzip pkgconf libboost-dev libboost-system-dev libboost-thread-dev \
+protobuf-c-compiler libprotobuf-c-dev lsb-release libsystemd0 
 
-WORKDIR /opt/intel
-RUN wget https://download.01.org/intel-sgx/sgx-linux/2.8/distro/ubuntu18.04-server/sgx_linux_x64_sdk_2.8.100.3.bin
-RUN chmod +x sgx_linux_x64_sdk_2.8.100.3.bin
-RUN echo 'yes' | ./sgx_linux_x64_sdk_2.8.100.3.bin
-RUN apt-get install -y \
-    libcurl4 \
-    libprotobuf10 \
-    libssl1.1
-RUN apt-get install -y --no-install-recommends libsgx-launch libsgx-urts
-WORKDIR /
-# RUN SGX_DEBUG=0 SGX_MODE=HW SGX_PRERELEASE=1 make
+RUN pip install cppcheck-codequality
 
-CMD [ "/bin/bash" ]
+RUN apt-get install -y libsgx-urts libsgx-launch libsgx-enclave-common
+RUN apt-get install -y libsgx-epid libsgx-quote-ex libsgx-dcap-ql
+
+
+RUN wget 'https://github.com/boyter/scc/releases/download/v3.0.0/scc-3.0.0-x86_64-unknown-linux.zip'
+RUN unzip 'scc-3.0.0-x86_64-unknown-linux.zip' -d /
+RUN chmod +x /scc
+
+RUN mkdir /dockerfiles
+RUN cd /dockerfiles && wget https://download.01.org/intel-sgx/latest/linux-latest/distro/ubuntu22.04-server/sgx_linux_x64_sdk_2.19.100.3.bin \
+&& chmod +x ./* \
+&& echo yes | ./sgx_linux_x64_sdk_2.19.100.3.bin
+RUN echo "source /dockerfiles/sgxsdk/environment" > /startsgxenv.sh
+RUN chmod +x /startsgxenv.sh
+
+SHELL ["/bin/bash", "-c"] 
+RUN ln -s /usr/lib/libsgx_urts.so /usr/lib/libsgx_urts.so.2
+
+WORKDIR /builder/
+CMD ["bash"]
