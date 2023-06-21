@@ -1,4 +1,4 @@
-FROM ubuntu:22.04
+FROM ubuntu:22.04 as sgxbase
 ENV TZ=Europe/Lisbon
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
@@ -33,20 +33,20 @@ RUN pip install cppcheck-codequality
 RUN apt-get install -y libsgx-urts libsgx-launch libsgx-enclave-common
 RUN apt-get install -y libsgx-epid libsgx-quote-ex libsgx-dcap-ql
 
-
 RUN wget 'https://github.com/boyter/scc/releases/download/v3.0.0/scc-3.0.0-x86_64-unknown-linux.zip'
 RUN unzip 'scc-3.0.0-x86_64-unknown-linux.zip' -d /
 RUN chmod +x /scc
 
-RUN mkdir /dockerfiles
-RUN cd /dockerfiles && wget https://download.01.org/intel-sgx/latest/linux-latest/distro/ubuntu22.04-server/sgx_linux_x64_sdk_2.19.100.3.bin \
-&& chmod +x ./* \
-&& echo yes | ./sgx_linux_x64_sdk_2.19.100.3.bin
-RUN echo "source /dockerfiles/sgxsdk/environment" > /startsgxenv.sh
-RUN chmod +x /startsgxenv.sh
+FROM sgxbase as sgx_sample_builder
+# App build time dependencies
+RUN apt-get install -y build-essential
 
-SHELL ["/bin/bash", "-c"] 
-RUN ln -s /usr/lib/libsgx_urts.so /usr/lib/libsgx_urts.so.2
+WORKDIR /opt/intel
+RUN wget https://download.01.org/intel-sgx/latest/linux-latest/distro/ubuntu22.04-server/sgx_linux_x64_sdk_2.19.100.3.bin
+RUN chmod +x sgx_linux_x64_sdk_2.19.100.3.bin
+RUN echo 'yes' | ./sgx_linux_x64_sdk_2.19.100.3.bin
+RUN apt-get install -y --no-install-recommends libsgx-launch libsgx-urts
+WORKDIR /
+# RUN SGX_DEBUG=0 SGX_MODE=HW SGX_PRERELEASE=1 make
 
-WORKDIR /builder/
-CMD ["bash"]
+CMD [ "/bin/bash" ]
